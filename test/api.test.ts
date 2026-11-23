@@ -76,6 +76,13 @@ describe('GET / with a status filter', () => {
     expect(html).toContain('3 orders listed');
   });
 
+  it('puts the choices in the same order as the list', async () => {
+    const html = await (await fetch(`${base}/`)).text();
+    const labels = [...html.matchAll(/<nav[^>]*>(.*?)<\/nav>/gs)]
+      .flatMap(([, nav]) => [...(nav ?? '').matchAll(/<a [^>]*>([^<]*)<\/a>/g)].map(([, label]) => label));
+    expect(labels).toEqual(['All', 'In progress', 'Open', 'Closed']);
+  });
+
   it('lists only the chosen status and marks the choice', async () => {
     const html = await (await fetch(`${base}/?status=open`)).text();
     expect(html).toContain('Open job');

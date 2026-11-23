@@ -51,8 +51,9 @@ calendar date with no time and no time zone.
 
 ## Filtering by status
 
-The page has four choices above the list: All, Open, In progress and Closed. All is the default.
-The choice is kept in the address as `?status=open`, `?status=in_progress` or `?status=closed`, so
+The page has four choices above the list: All, In progress, Open and Closed, in the same order as
+the list. All is the default.
+The choice is kept in the address as `?status=in_progress`, `?status=open` or `?status=closed`, so
 a filtered view can be shared as a link. `GET /api/work-orders` takes the same parameter.
 
 - No `status`, or `status=all`, lists every order.

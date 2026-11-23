@@ -24,8 +24,8 @@ function row(order: WorkOrder): string {
 
 const CHOICES: [Status | 'all', string, string][] = [
   ['all', 'All', '/'],
-  ['open', STATUS_LABEL.open, '/?status=open'],
   ['in_progress', STATUS_LABEL.in_progress, '/?status=in_progress'],
+  ['open', STATUS_LABEL.open, '/?status=open'],
   ['closed', STATUS_LABEL.closed, '/?status=closed'],
 ];
 
