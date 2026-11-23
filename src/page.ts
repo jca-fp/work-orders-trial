@@ -22,7 +22,21 @@ function row(order: WorkOrder): string {
     </tr>`;
 }
 
-export function renderPage(orders: WorkOrder[]): string {
+const CHOICES: [Status | 'all', string, string][] = [
+  ['all', 'All', '/'],
+  ['open', STATUS_LABEL.open, '/?status=open'],
+  ['in_progress', STATUS_LABEL.in_progress, '/?status=in_progress'],
+  ['closed', STATUS_LABEL.closed, '/?status=closed'],
+];
+
+function filterControl(filter: Status | 'all'): string {
+  const links = CHOICES.map(
+    ([choice, label, href]) => `<a href="${href}"${choice === filter ? ' aria-current="page"' : ''}>${label}</a>`,
+  );
+  return `<nav aria-label="Filter by status">${links.join(' | ')}</nav>`;
+}
+
+export function renderPage(orders: WorkOrder[], filter: Status | 'all' = 'all'): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -34,10 +48,13 @@ export function renderPage(orders: WorkOrder[]): string {
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #ddd; padding: 0.5rem; text-align: left; }
     tr[data-status="closed"] { color: #888; }
+    nav a[aria-current="page"] { font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>Work orders</h1>
+  ${filterControl(filter)}
+  <p class="count">${orders.length} ${orders.length === 1 ? 'order' : 'orders'} listed</p>
   <table>
     <thead><tr><th>No.</th><th>Title</th><th>Client</th><th>Status</th><th>Due</th><th></th></tr></thead>
     <tbody>
