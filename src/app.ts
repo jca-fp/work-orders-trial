@@ -3,10 +3,29 @@ import { notifyClient } from './notify.js';
 import { renderPage } from './page.js';
 import { sortWorkOrders } from './sort.js';
 import type { WorkOrderStore } from './store.js';
+import type { Status, WorkOrder } from './types.js';
+
+const STATUSES: readonly string[] = ['open', 'in_progress', 'closed'] satisfies Status[];
 
 function send(res: ServerResponse, status: number, type: string, body: string): void {
   res.writeHead(status, { 'content-type': type });
   res.end(body);
+}
+
+function isStatus(value: string): value is Status {
+  return STATUSES.includes(value);
+}
+
+/** Reads ?status=. Returns 'all' when it is missing or "all", the status when it is known, and null otherwise. */
+function readStatusFilter(url: URL): Status | 'all' | null {
+  const value = url.searchParams.get('status');
+  if (value === null || value === 'all') return 'all';
+  return isStatus(value) ? value : null;
+}
+
+async function listOrders(store: WorkOrderStore, filter: Status | 'all'): Promise<WorkOrder[]> {
+  const orders = sortWorkOrders(await store.list());
+  return filter === 'all' ? orders : orders.filter((order) => order.status === filter);
 }
 
 /** Builds the request handler. The store is passed in so tests can run without a database. */
@@ -15,10 +34,14 @@ export function createApp(store: WorkOrderStore) {
     const url = new URL(req.url ?? '/', 'http://localhost');
     try {
       if (req.method === 'GET' && url.pathname === '/') {
-        return send(res, 200, 'text/html; charset=utf-8', renderPage(sortWorkOrders(await store.list())));
+        const filter = readStatusFilter(url);
+        if (filter === null) return send(res, 400, 'text/plain', 'Unknown status');
+        return send(res, 200, 'text/html; charset=utf-8', renderPage(await listOrders(store, filter), filter));
       }
       if (req.method === 'GET' && url.pathname === '/api/work-orders') {
-        return send(res, 200, 'application/json', JSON.stringify(sortWorkOrders(await store.list())));
+        const filter = readStatusFilter(url);
+        if (filter === null) return send(res, 400, 'text/plain', 'Unknown status');
+        return send(res, 200, 'application/json', JSON.stringify(await listOrders(store, filter)));
       }
       const close = /^\/work-orders\/(\d+)\/close$/.exec(url.pathname);
       if (req.method === 'POST' && close) {

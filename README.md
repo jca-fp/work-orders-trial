@@ -49,6 +49,19 @@ it writes nothing. Leave `SEND_EMAIL` off everywhere except a deliberate local t
 Closed orders are always listed after open ones, however old their due date. A due date is a
 calendar date with no time and no time zone.
 
+## Filtering by status
+
+The page has four choices above the list: All, In progress, Open and Closed, in the same order as
+the list. All is the default.
+The choice is kept in the address as `?status=in_progress`, `?status=open` or `?status=closed`, so
+a filtered view can be shared as a link. `GET /api/work-orders` takes the same parameter.
+
+- No `status`, or `status=all`, lists every order.
+- Any other value, including an empty one or a different case such as `OPEN`, answers 400.
+- A filtered list keeps the ordering rules above.
+
+The page says how many orders are listed.
+
 ## Checks
 
 ```bash
@@ -94,7 +107,7 @@ Never set `SEND_EMAIL` to `true` except for a deliberate local test. Do not comm
 | Path | What it holds |
 | --- | --- |
 | `src/server.ts` | Starts the application with the Postgres store |
-| `src/app.ts` | The routes: the page, `GET /api/work-orders`, and closing an order |
+| `src/app.ts` | The routes: the page, `GET /api/work-orders` (with an optional `?status=`), and closing an order |
 | `src/page.ts` | The HTML of the page |
 | `src/sort.ts` | The ordering rules |
 | `src/dates.ts` | Formatting of due dates |
