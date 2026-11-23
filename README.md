@@ -68,6 +68,27 @@ to `main` and `staging`. It runs them twice, once with the time zone set to `UTC
 TZ=Asia/Tokyo npm test
 ```
 
+## Contributing
+
+1. Open an issue on GitHub that describes the change you want to make.
+2. Create a branch from `main`.
+3. Install and run the application as described in "Setup" and "Run".
+4. Keep the change focused on that issue. When behaviour changes, add or update the tests in
+   `test/`. When the change affects something this README describes, such as the ordering rules
+   or `SEND_EMAIL`, update the README too.
+5. Before you push, run the checks:
+
+   ```bash
+   npm run check
+   ```
+
+   If the change touches dates or times, also run `TZ=Asia/Tokyo npm test`.
+6. Open a pull request to `main`. Say what changed and why, and link the issue. The `check`
+   workflow must pass in both time zones. A person reviews and merges the pull request.
+
+Never set `SEND_EMAIL` to `true` except for a deliberate local test. Do not commit `.env` or
+`outbox.log`; both are listed in `.gitignore`.
+
 ## Layout
 
 | Path | What it holds |
