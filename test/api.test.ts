@@ -131,3 +131,43 @@ describe('notifyClient', () => {
     expect(readFileSync(file, 'utf8')).toContain('EMAIL to Maple Bakery: work order #2');
   });
 });
+
+describe('overdue orders first, in New York time', () => {
+  // 22:00 on Nov 24 in New York; already Nov 25 in UTC and in Tokyo.
+  const NOW = new Date('2026-11-25T03:00:00Z');
+  const DATED: WorkOrder[] = [
+    { id: 11, title: 'Due tomorrow', client: 'Harbor Cafe', status: 'in_progress', dueDate: '2026-11-25' },
+    { id: 12, title: 'Due today', client: 'Maple Bakery', status: 'open', dueDate: '2026-11-24' },
+    { id: 13, title: 'Due yesterday', client: 'Blue Door Diner', status: 'open', dueDate: '2026-11-23' },
+    { id: 14, title: 'Closed long ago', client: 'Harbor Cafe', status: 'closed', dueDate: '2026-01-01' },
+  ];
+  let datedServer: Server;
+  let datedBase: string;
+
+  beforeEach(async () => {
+    datedServer = createServer(createApp(new MemoryStore(DATED), () => NOW));
+    await new Promise<void>((resolve) => datedServer.listen(0, '127.0.0.1', resolve));
+    datedBase = `http://127.0.0.1:${(datedServer.address() as AddressInfo).port}`;
+  });
+
+  afterEach(async () => {
+    await new Promise((resolve) => datedServer.close(resolve));
+  });
+
+  it('lists the order due yesterday first; due today is not overdue yet', async () => {
+    const body = (await (await fetch(`${datedBase}/api/work-orders`)).json()) as WorkOrder[];
+    expect(body.map((o) => o.id)).toEqual([13, 11, 12, 14]);
+  });
+
+  it('keeps the order when filtering', async () => {
+    const body = (await (await fetch(`${datedBase}/api/work-orders?status=open`)).json()) as WorkOrder[];
+    expect(body.map((o) => o.id)).toEqual([13, 12]);
+  });
+
+  it('shows the same order on the page', async () => {
+    const html = await (await fetch(`${datedBase}/`)).text();
+    const titles = ['Due yesterday', 'Due tomorrow', 'Due today', 'Closed long ago'].map((t) => html.indexOf(t));
+    expect(titles.every((i) => i >= 0)).toBe(true);
+    expect([...titles].sort((a, b) => a - b)).toEqual(titles);
+  });
+});

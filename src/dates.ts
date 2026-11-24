@@ -7,3 +7,25 @@ export function formatDueDate(dueDate: string): string {
   if (!match || !month) throw new Error(`Not a calendar date: ${dueDate}`);
   return `${month} ${Number(match[3])}, ${match[1]}`;
 }
+
+/** The business works in New York time. "Today" and "overdue" are decided there. */
+export const BUSINESS_TIME_ZONE = 'America/New_York';
+
+/**
+ * Today's calendar date, written YYYY-MM-DD, in the given time zone.
+ * It does not depend on the machine's time zone.
+ */
+export function todayIn(timeZone: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes): string => {
+    const value = parts.find((p) => p.type === type)?.value;
+    if (!value) throw new Error(`No ${type} in the date for ${timeZone}`);
+    return value;
+  };
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
