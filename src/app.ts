@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { BUSINESS_TIME_ZONE, todayIn } from './dates.js';
 import { notifyClient } from './notify.js';
 import { renderPage } from './page.js';
 import { sortWorkOrders } from './sort.js';
@@ -23,25 +24,28 @@ function readStatusFilter(url: URL): Status | 'all' | null {
   return isStatus(value) ? value : null;
 }
 
-async function listOrders(store: WorkOrderStore, filter: Status | 'all'): Promise<WorkOrder[]> {
-  const orders = sortWorkOrders(await store.list());
+async function listOrders(store: WorkOrderStore, filter: Status | 'all', now: Date): Promise<WorkOrder[]> {
+  const orders = sortWorkOrders(await store.list(), todayIn(BUSINESS_TIME_ZONE, now));
   return filter === 'all' ? orders : orders.filter((order) => order.status === filter);
 }
 
-/** Builds the request handler. The store is passed in so tests can run without a database. */
-export function createApp(store: WorkOrderStore) {
+/**
+ * Builds the request handler. The store is passed in so tests can run without a database.
+ * `now` gives the current time; tests pass a fixed one.
+ */
+export function createApp(store: WorkOrderStore, now: () => Date = () => new Date()) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     try {
       if (req.method === 'GET' && url.pathname === '/') {
         const filter = readStatusFilter(url);
         if (filter === null) return send(res, 400, 'text/plain', 'Unknown status');
-        return send(res, 200, 'text/html; charset=utf-8', renderPage(await listOrders(store, filter), filter));
+        return send(res, 200, 'text/html; charset=utf-8', renderPage(await listOrders(store, filter, now()), filter));
       }
       if (req.method === 'GET' && url.pathname === '/api/work-orders') {
         const filter = readStatusFilter(url);
         if (filter === null) return send(res, 400, 'text/plain', 'Unknown status');
-        return send(res, 200, 'application/json', JSON.stringify(await listOrders(store, filter)));
+        return send(res, 200, 'application/json', JSON.stringify(await listOrders(store, filter, now())));
       }
       const close = /^\/work-orders\/(\d+)\/close$/.exec(url.pathname);
       if (req.method === 'POST' && close) {

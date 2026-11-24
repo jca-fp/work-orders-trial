@@ -42,12 +42,19 @@ it writes nothing. Leave `SEND_EMAIL` off everywhere except a deliberate local t
 
 ## How the list is ordered
 
-1. Orders in progress come first, then open orders, then closed orders.
-2. Inside each status, the earliest due date comes first.
-3. Ties keep the lower order number first.
+1. Overdue orders come first, as a group. Inside that group the rules below apply: orders in
+   progress before open ones, then the most overdue first.
+2. Orders in progress come first, then open orders, then closed orders.
+3. Inside each status, the earliest due date comes first.
+4. Ties keep the lower order number first.
+
+An open or in-progress order is overdue once its due date has passed in the business's time zone,
+America/New_York. An order due today is not overdue yet; it becomes overdue at midnight New York
+time. A closed order is never overdue.
 
 Closed orders are always listed after open ones, however old their due date. A due date is a
-calendar date with no time and no time zone.
+calendar date with no time and no time zone. Only "today", used to decide what is overdue, is taken
+in New York time, whatever the time zone of the machine.
 
 ## Filtering by status
 
@@ -109,8 +116,8 @@ Never set `SEND_EMAIL` to `true` except for a deliberate local test. Do not comm
 | `src/server.ts` | Starts the application with the Postgres store |
 | `src/app.ts` | The routes: the page, `GET /api/work-orders` (with an optional `?status=`), and closing an order |
 | `src/page.ts` | The HTML of the page |
-| `src/sort.ts` | The ordering rules |
-| `src/dates.ts` | Formatting of due dates |
+| `src/sort.ts` | The ordering rules, and what counts as overdue |
+| `src/dates.ts` | Formatting of due dates, and today's date in New York |
 | `src/notify.ts` | The stand-in for emailing a client |
 | `src/store.ts` | Reading and writing orders, in Postgres or in memory |
 | `db/init.sql` | The table and the sample orders |
