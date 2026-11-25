@@ -24,9 +24,26 @@ function readStatusFilter(url: URL): Status | 'all' | null {
   return isStatus(value) ? value : null;
 }
 
-async function listOrders(store: WorkOrderStore, filter: Status | 'all', now: Date): Promise<WorkOrder[]> {
+/** Reads ?client=, trimmed. Missing or blank means no search. Any text is a valid search. */
+function readClientSearch(url: URL): string {
+  return url.searchParams.get('client')?.trim() ?? '';
+}
+
+/** True when the client name contains the search, ignoring case. An empty search matches every order. */
+function matchesClient(order: WorkOrder, search: string): boolean {
+  return search === '' || order.client.toLowerCase().includes(search.toLowerCase());
+}
+
+interface ListFilter {
+  status: Status | 'all';
+  client: string;
+}
+
+async function listOrders(store: WorkOrderStore, filter: ListFilter, now: Date): Promise<WorkOrder[]> {
   const orders = sortWorkOrders(await store.list(), todayIn(BUSINESS_TIME_ZONE, now));
-  return filter === 'all' ? orders : orders.filter((order) => order.status === filter);
+  return orders.filter(
+    (order) => (filter.status === 'all' || order.status === filter.status) && matchesClient(order, filter.client),
+  );
 }
 
 /**
@@ -38,14 +55,17 @@ export function createApp(store: WorkOrderStore, now: () => Date = () => new Dat
     const url = new URL(req.url ?? '/', 'http://localhost');
     try {
       if (req.method === 'GET' && url.pathname === '/') {
-        const filter = readStatusFilter(url);
-        if (filter === null) return send(res, 400, 'text/plain', 'Unknown status');
-        return send(res, 200, 'text/html; charset=utf-8', renderPage(await listOrders(store, filter, now()), filter));
+        const status = readStatusFilter(url);
+        if (status === null) return send(res, 400, 'text/plain', 'Unknown status');
+        const client = readClientSearch(url);
+        const orders = await listOrders(store, { status, client }, now());
+        return send(res, 200, 'text/html; charset=utf-8', renderPage(orders, status, client));
       }
       if (req.method === 'GET' && url.pathname === '/api/work-orders') {
-        const filter = readStatusFilter(url);
-        if (filter === null) return send(res, 400, 'text/plain', 'Unknown status');
-        return send(res, 200, 'application/json', JSON.stringify(await listOrders(store, filter, now())));
+        const status = readStatusFilter(url);
+        if (status === null) return send(res, 400, 'text/plain', 'Unknown status');
+        const orders = await listOrders(store, { status, client: readClientSearch(url) }, now());
+        return send(res, 200, 'application/json', JSON.stringify(orders));
       }
       const close = /^\/work-orders\/(\d+)\/close$/.exec(url.pathname);
       if (req.method === 'POST' && close) {
