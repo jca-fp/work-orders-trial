@@ -69,6 +69,19 @@ a filtered view can be shared as a link. `GET /api/work-orders` takes the same p
 
 The page says how many orders are listed.
 
+## Searching by client
+
+The page has a search box above the status choices. It lists only the orders whose client name
+contains the text you search for, ignoring upper and lower case: `maple`, `MAPLE` and `Bakery` all
+find "Maple Bakery". The search is kept in the address as `?client=maple`, so a search can be shared
+as a link. `GET /api/work-orders` takes the same parameter.
+
+- No `client`, an empty one, or only spaces lists every order. Spaces around the text are ignored.
+- A search that matches nothing lists no orders; it is not an error.
+- The search works together with `?status=`, for example `?status=open&client=maple`. The status
+  choices keep the current search, and searching keeps the chosen status.
+- A searched list keeps the ordering rules above.
+
 ## Checks
 
 ```bash
@@ -114,7 +127,7 @@ Never set `SEND_EMAIL` to `true` except for a deliberate local test. Do not comm
 | Path | What it holds |
 | --- | --- |
 | `src/server.ts` | Starts the application with the Postgres store |
-| `src/app.ts` | The routes: the page, `GET /api/work-orders` (with an optional `?status=`), and closing an order |
+| `src/app.ts` | The routes: the page, `GET /api/work-orders` (with optional `?status=` and `?client=`), and closing an order |
 | `src/page.ts` | The HTML of the page |
 | `src/sort.ts` | The ordering rules, and what counts as overdue |
 | `src/dates.ts` | Formatting of due dates, and today's date in New York |
