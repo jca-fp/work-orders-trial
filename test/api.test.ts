@@ -46,6 +46,59 @@ describe('GET /', () => {
   });
 });
 
+describe('GET /api/work-orders?status=', () => {
+  it.each([
+    ['open', [2]],
+    ['in_progress', [3]],
+    ['closed', [1]],
+    ['all', [3, 2, 1]],
+  ])('?status=%s returns only those orders, sorted', async (status, ids) => {
+    const response = await fetch(`${base}/api/work-orders?status=${status}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as WorkOrder[];
+    expect(body.map((o) => o.id)).toEqual(ids);
+    if (status !== 'all') expect(body.every((o) => o.status === status)).toBe(true);
+  });
+
+  it.each(['done', '', 'OPEN'])('answers 400 for the unknown status "%s"', async (status) => {
+    const response = await fetch(`${base}/api/work-orders?status=${status}`);
+    expect(response.status).toBe(400);
+  });
+});
+
+describe('GET / with a status filter', () => {
+  it('shows the four choices, with All selected, and the count', async () => {
+    const html = await (await fetch(`${base}/`)).text();
+    expect(html).toContain('<a href="/" aria-current="page">All</a>');
+    expect(html).toContain('<a href="/?status=open">Open</a>');
+    expect(html).toContain('<a href="/?status=in_progress">In progress</a>');
+    expect(html).toContain('<a href="/?status=closed">Closed</a>');
+    expect(html).toContain('3 orders listed');
+  });
+
+  it('puts the choices in the same order as the list', async () => {
+    const html = await (await fetch(`${base}/`)).text();
+    const labels = [...html.matchAll(/<nav[^>]*>(.*?)<\/nav>/gs)]
+      .flatMap(([, nav]) => [...(nav ?? '').matchAll(/<a [^>]*>([^<]*)<\/a>/g)].map(([, label]) => label));
+    expect(labels).toEqual(['All', 'In progress', 'Open', 'Closed']);
+  });
+
+  it('lists only the chosen status and marks the choice', async () => {
+    const html = await (await fetch(`${base}/?status=open`)).text();
+    expect(html).toContain('Open job');
+    expect(html).not.toContain('Old closed job');
+    expect(html).not.toContain('Job in progress');
+    expect(html).toContain('1 order listed');
+    expect(html).toContain('<a href="/?status=open" aria-current="page">Open</a>');
+    expect(html).toContain('<a href="/">All</a>');
+  });
+
+  it('answers 400 for an unknown status', async () => {
+    const response = await fetch(`${base}/?status=bogus`);
+    expect(response.status).toBe(400);
+  });
+});
+
 describe('POST /work-orders/:id/close', () => {
   it('closes the order and goes back to the list', async () => {
     const response = await fetch(`${base}/work-orders/2/close`, { method: 'POST', redirect: 'manual' });
@@ -76,5 +129,45 @@ describe('notifyClient', () => {
     process.env.SEND_EMAIL = 'true';
     expect(notifyClient(order, file)).toBe(true);
     expect(readFileSync(file, 'utf8')).toContain('EMAIL to Maple Bakery: work order #2');
+  });
+});
+
+describe('overdue orders first, in New York time', () => {
+  // 22:00 on Nov 24 in New York; already Nov 25 in UTC and in Tokyo.
+  const NOW = new Date('2026-11-25T03:00:00Z');
+  const DATED: WorkOrder[] = [
+    { id: 11, title: 'Due tomorrow', client: 'Harbor Cafe', status: 'in_progress', dueDate: '2026-11-25' },
+    { id: 12, title: 'Due today', client: 'Maple Bakery', status: 'open', dueDate: '2026-11-24' },
+    { id: 13, title: 'Due yesterday', client: 'Blue Door Diner', status: 'open', dueDate: '2026-11-23' },
+    { id: 14, title: 'Closed long ago', client: 'Harbor Cafe', status: 'closed', dueDate: '2026-01-01' },
+  ];
+  let datedServer: Server;
+  let datedBase: string;
+
+  beforeEach(async () => {
+    datedServer = createServer(createApp(new MemoryStore(DATED), () => NOW));
+    await new Promise<void>((resolve) => datedServer.listen(0, '127.0.0.1', resolve));
+    datedBase = `http://127.0.0.1:${(datedServer.address() as AddressInfo).port}`;
+  });
+
+  afterEach(async () => {
+    await new Promise((resolve) => datedServer.close(resolve));
+  });
+
+  it('lists the order due yesterday first; due today is not overdue yet', async () => {
+    const body = (await (await fetch(`${datedBase}/api/work-orders`)).json()) as WorkOrder[];
+    expect(body.map((o) => o.id)).toEqual([13, 11, 12, 14]);
+  });
+
+  it('keeps the order when filtering', async () => {
+    const body = (await (await fetch(`${datedBase}/api/work-orders?status=open`)).json()) as WorkOrder[];
+    expect(body.map((o) => o.id)).toEqual([13, 12]);
+  });
+
+  it('shows the same order on the page', async () => {
+    const html = await (await fetch(`${datedBase}/`)).text();
+    const titles = ['Due yesterday', 'Due tomorrow', 'Due today', 'Closed long ago'].map((t) => html.indexOf(t));
+    expect(titles.every((i) => i >= 0)).toBe(true);
+    expect([...titles].sort((a, b) => a - b)).toEqual(titles);
   });
 });
