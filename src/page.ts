@@ -54,7 +54,16 @@ function searchControl(filter: Status | 'all', client: string): string {
   </form>`;
 }
 
-export function renderPage(orders: WorkOrder[], filter: Status | 'all' = 'all', client = ''): string {
+/**
+ * `openCount` is how many of all orders are open or in progress, whatever the filter and search.
+ * When it is not given, it is counted from `orders`.
+ */
+export function renderPage(
+  orders: WorkOrder[],
+  filter: Status | 'all' = 'all',
+  client = '',
+  openCount = orders.filter((order) => order.status !== 'closed').length,
+): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -72,6 +81,7 @@ export function renderPage(orders: WorkOrder[], filter: Status | 'all' = 'all', 
 </head>
 <body>
   <h1>Work orders</h1>
+  <p class="open-count">${openCount} open work ${openCount === 1 ? 'order' : 'orders'}</p>
   ${searchControl(filter, client)}
   ${filterControl(filter, client)}
   <p class="count">${orders.length} ${orders.length === 1 ? 'order' : 'orders'} listed</p>

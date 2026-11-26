@@ -39,11 +39,17 @@ interface ListFilter {
   client: string;
 }
 
-async function listOrders(store: WorkOrderStore, filter: ListFilter, now: Date): Promise<WorkOrder[]> {
-  const orders = sortWorkOrders(await store.list(), todayIn(BUSINESS_TIME_ZONE, now));
-  return orders.filter(
+/** Returns the orders that match the filter, sorted, and how many of all orders are open or in progress. */
+async function listOrders(
+  store: WorkOrderStore,
+  filter: ListFilter,
+  now: Date,
+): Promise<{ orders: WorkOrder[]; openCount: number }> {
+  const all = await store.list();
+  const orders = sortWorkOrders(all, todayIn(BUSINESS_TIME_ZONE, now)).filter(
     (order) => (filter.status === 'all' || order.status === filter.status) && matchesClient(order, filter.client),
   );
+  return { orders, openCount: all.filter((order) => order.status !== 'closed').length };
 }
 
 /**
@@ -58,13 +64,13 @@ export function createApp(store: WorkOrderStore, now: () => Date = () => new Dat
         const status = readStatusFilter(url);
         if (status === null) return send(res, 400, 'text/plain', 'Unknown status');
         const client = readClientSearch(url);
-        const orders = await listOrders(store, { status, client }, now());
-        return send(res, 200, 'text/html; charset=utf-8', renderPage(orders, status, client));
+        const { orders, openCount } = await listOrders(store, { status, client }, now());
+        return send(res, 200, 'text/html; charset=utf-8', renderPage(orders, status, client, openCount));
       }
       if (req.method === 'GET' && url.pathname === '/api/work-orders') {
         const status = readStatusFilter(url);
         if (status === null) return send(res, 400, 'text/plain', 'Unknown status');
-        const orders = await listOrders(store, { status, client: readClientSearch(url) }, now());
+        const { orders } = await listOrders(store, { status, client: readClientSearch(url) }, now());
         return send(res, 200, 'application/json', JSON.stringify(orders));
       }
       const close = /^\/work-orders\/(\d+)\/close$/.exec(url.pathname);

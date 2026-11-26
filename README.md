@@ -82,6 +82,14 @@ as a link. `GET /api/work-orders` takes the same parameter.
   choices keep the current search, and searching keeps the chosen status.
 - A searched list keeps the ordering rules above.
 
+## Number of open orders
+
+At the top of the page, under the title, a line says how many work orders are still open, for
+example "2 open work orders". It counts every order that is open or in progress; closed orders are
+not counted. It counts all orders, whatever status is chosen or client is searched, so the number
+stays the same in every view. The "orders listed" line above the table still counts only the orders
+in the current view. `GET /api/work-orders` is unchanged.
+
 ## Checks
 
 ```bash
