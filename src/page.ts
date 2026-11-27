@@ -1,4 +1,5 @@
-import { formatDueDate } from './dates.js';
+import { BUSINESS_TIME_ZONE, formatDueDate, todayIn } from './dates.js';
+import { isOverdue } from './sort.js';
 import type { Status, WorkOrder } from './types.js';
 
 const STATUS_LABEL: Record<Status, string> = { open: 'Open', in_progress: 'In progress', closed: 'Closed' };
@@ -7,17 +8,19 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`);
 }
 
-function row(order: WorkOrder): string {
+/** `today` is a calendar date, YYYY-MM-DD, in the business's time zone. */
+function row(order: WorkOrder, today: string): string {
   const action =
     order.status === 'closed'
       ? ''
       : `<form method="post" action="/work-orders/${order.id}/close"><button>Close</button></form>`;
+  const overdue = isOverdue(order, today) ? ' <span class="overdue">Overdue</span>' : '';
   return `<tr data-status="${order.status}">
       <td>#${order.id}</td>
       <td>${escapeHtml(order.title)}</td>
       <td>${escapeHtml(order.client)}</td>
       <td>${STATUS_LABEL[order.status]}</td>
-      <td>${formatDueDate(order.dueDate)}</td>
+      <td>${formatDueDate(order.dueDate)}${overdue}</td>
       <td>${action}</td>
     </tr>`;
 }
@@ -57,12 +60,15 @@ function searchControl(filter: Status | 'all', client: string): string {
 /**
  * `openCount` is how many of all orders are open or in progress, whatever the filter and search.
  * When it is not given, it is counted from `orders`.
+ * `today` is a calendar date, YYYY-MM-DD, in the business's time zone. It decides which orders are
+ * marked "Overdue". When it is not given, it is today in New York.
  */
 export function renderPage(
   orders: WorkOrder[],
   filter: Status | 'all' = 'all',
   client = '',
   openCount = orders.filter((order) => order.status !== 'closed').length,
+  today = todayIn(BUSINESS_TIME_ZONE),
 ): string {
   return `<!doctype html>
 <html lang="en">
@@ -77,6 +83,7 @@ export function renderPage(
     tr[data-status="closed"] { color: #888; }
     form[role="search"] { margin-bottom: 0.5rem; }
     nav a[aria-current="page"] { font-weight: bold; }
+    .overdue { color: #c00; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -88,7 +95,7 @@ export function renderPage(
   <table>
     <thead><tr><th>No.</th><th>Title</th><th>Client</th><th>Status</th><th>Due</th><th></th></tr></thead>
     <tbody>
-    ${orders.map(row).join('\n    ')}
+    ${orders.map((order) => row(order, today)).join('\n    ')}
     </tbody>
   </table>
 </body>

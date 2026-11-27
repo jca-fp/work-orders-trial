@@ -39,17 +39,21 @@ interface ListFilter {
   client: string;
 }
 
-/** Returns the orders that match the filter, sorted, and how many of all orders are open or in progress. */
+/**
+ * Returns the orders that match the filter, sorted, how many of all orders are open or in progress,
+ * and today's date in the business's time zone.
+ */
 async function listOrders(
   store: WorkOrderStore,
   filter: ListFilter,
   now: Date,
-): Promise<{ orders: WorkOrder[]; openCount: number }> {
+): Promise<{ orders: WorkOrder[]; openCount: number; today: string }> {
   const all = await store.list();
-  const orders = sortWorkOrders(all, todayIn(BUSINESS_TIME_ZONE, now)).filter(
+  const today = todayIn(BUSINESS_TIME_ZONE, now);
+  const orders = sortWorkOrders(all, today).filter(
     (order) => (filter.status === 'all' || order.status === filter.status) && matchesClient(order, filter.client),
   );
-  return { orders, openCount: all.filter((order) => order.status !== 'closed').length };
+  return { orders, openCount: all.filter((order) => order.status !== 'closed').length, today };
 }
 
 /**
@@ -64,8 +68,8 @@ export function createApp(store: WorkOrderStore, now: () => Date = () => new Dat
         const status = readStatusFilter(url);
         if (status === null) return send(res, 400, 'text/plain', 'Unknown status');
         const client = readClientSearch(url);
-        const { orders, openCount } = await listOrders(store, { status, client }, now());
-        return send(res, 200, 'text/html; charset=utf-8', renderPage(orders, status, client, openCount));
+        const { orders, openCount, today } = await listOrders(store, { status, client }, now());
+        return send(res, 200, 'text/html; charset=utf-8', renderPage(orders, status, client, openCount, today));
       }
       if (req.method === 'GET' && url.pathname === '/api/work-orders') {
         const status = readStatusFilter(url);
