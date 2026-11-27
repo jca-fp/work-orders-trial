@@ -56,6 +56,13 @@ Closed orders are always listed after open ones, however old their due date. A d
 calendar date with no time and no time zone. Only "today", used to decide what is overdue, is taken
 in New York time, whatever the time zone of the machine.
 
+## Overdue label
+
+On the page, every overdue order shows the word "Overdue" in red next to its due date. It uses the
+same rule as the ordering above: an open or in-progress order whose due date has passed in New York
+time. An order due today does not show it, and a closed order never does. `GET /api/work-orders` is
+unchanged.
+
 ## Filtering by status
 
 The page has four choices above the list: All, In progress, Open and Closed, in the same order as
@@ -136,7 +143,7 @@ Never set `SEND_EMAIL` to `true` except for a deliberate local test. Do not comm
 | --- | --- |
 | `src/server.ts` | Starts the application with the Postgres store |
 | `src/app.ts` | The routes: the page, `GET /api/work-orders` (with optional `?status=` and `?client=`), and closing an order |
-| `src/page.ts` | The HTML of the page |
+| `src/page.ts` | The HTML of the page, including the "Overdue" label |
 | `src/sort.ts` | The ordering rules, and what counts as overdue |
 | `src/dates.ts` | Formatting of due dates, and today's date in New York |
 | `src/notify.ts` | The stand-in for emailing a client |
